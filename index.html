@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bingo 100 Prototype</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Bingo 100</h1>
+    <div class="controls">
+      <label>
+        Tickets:
+  <input type="number" id="ticketCount" min="1" max="20" value="4" />
+      </label>
+      <label>
+        CPU Players:
+        <input type="number" id="cpuCount" min="1" max="100" value="1" />
+      </label>
+      <button id="startBtn">Start Game</button>
+      <button id="callBtn" disabled>Call Next Number</button>
+  <button id="autoBtn" disabled>Auto Call (3s)</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <div class="rpt-info">
+  RTP: 85% total — Full House: 30% RTP, Total Score: 55% RTP
+  <span id="rptAmounts" class="rpt-amounts"></span>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section class="board">
+      <div class="calls">
+        <h2>Called Numbers</h2>
+        <div id="calledList" class="called-list"></div>
+        <div class="last-call">Last call: <span id="lastCall">—</span></div>
+      </div>
+
+  <div class="tickets" id="tickets"></div>
+    </section>
+
+    <section class="status" id="status"></section>
+  </main>
+
+  <footer class="app-footer">
+    <small>Prototype — for gameplay and UI demonstration</small>
+  </footer>
+
+  <!-- Prize Modal -->
+  <div id="prizeModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="prizeTitle">
+      <div class="modal-header">
+        <h2 id="prizeTitle">Prizes</h2>
+        <button class="close" id="closePrize">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="prize-info">Overall RTP: 85% — Full House: 30% RTP, Total Score: 55% RTP</div>
+        <div class="prize-grid">
+          <div class="prize-card">
+            <h3>Full House</h3>
+            <p id="fullHouseWinner">—</p>
+            <p class="prize-value">Prize: <strong id="fullHouseAmount">—</strong></p>
+            <small>First to mark all 10 numbers</small>
+          </div>
+          <div class="prize-card">
+            <h3>Total Score</h3>
+            <p id="totalScoreWinner">—</p>
+            <p class="prize-value">Prize: <strong id="totalScoreAmount">—</strong></p>
+            <small>Exact 100 or closest to 100</small>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="resetFromPrize">Reset Game</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

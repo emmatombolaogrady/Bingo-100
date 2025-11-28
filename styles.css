@@ -1,0 +1,268 @@
+/* Basics */
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --success: #2ea043;
+  --warn: #f2cc60;
+  --danger: #ff6b6b;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-header, .app-footer {
+  background: var(--panel);
+  padding: 12px 16px;
+  border-bottom: 1px solid #222;
+}
+.app-footer { border-top: 1px solid #222; border-bottom: none; }
+
+.controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.controls input[type="number"] {
+  width: 64px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #0b0f14;
+  color: var(--text);
+}
+.controls button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #0b0f14;
+  color: var(--text);
+  cursor: pointer;
+}
+.controls button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.rpt-info { color: var(--muted); margin-top: 6px; font-size: 14px; }
+.rpt-amounts { margin-left: 8px; color: var(--text); font-weight: 600; }
+.prize-value { color: var(--text); }
+
+.app-main { padding: 16px; }
+.board {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+}
+
+/* Called numbers panel */
+.calls {
+  background: var(--panel);
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 12px;
+}
+.called-list {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  max-height: 300px;
+  overflow: auto;
+}
+.called-list .ball {
+  background: #0b0f14;
+  border: 1px solid #333;
+  border-radius: 999px;
+  padding: 8px;
+  text-align: center;
+  font-weight: 600;
+}
+.called-list .ball.current {
+  background: rgba(88, 166, 255, 0.25);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.last-call { margin-top: 8px; color: var(--muted); }
+
+/* Tickets grid */
+.tickets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.player-section {
+  grid-column: 1 / -1;
+}
+.player-header {
+  margin: 8px 0;
+  color: var(--muted);
+}
+.ticket {
+  background: var(--panel);
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 8px;
+}
+.ticket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.progress {
+  width: 100%;
+  height: 16px;
+  background: #0b0f14;
+  border: 1px solid #333;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.progress .bar {
+  height: 100%;
+  width: 0%;
+  background: var(--warn);
+  transition: width 250ms ease;
+}
+.progress.slow .bar {
+  transition: width 800ms ease-in;
+}
+.progress.pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  box-shadow: 0 0 0 0 rgba(46, 160, 67, 0.7);
+  animation: pulse-ring 800ms ease-out 1;
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(46, 160, 67, 0.7); }
+  70% { box-shadow: 0 0 0 12px rgba(46, 160, 67, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 160, 67, 0); }
+}
+.progress .label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text);
+}
+.progress .overflow-msg {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 17, 23, 0.85);
+  color: var(--text);
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid #333;
+}
+.progress.show-msg .overflow-msg { display: flex; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 6px;
+}
+.cell {
+  background: #0b0f14;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px 6px;
+  text-align: center;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cell.marked {
+  background: rgba(46, 160, 67, 0.25);
+  border-color: var(--success);
+}
+.cell.empty { opacity: 0.4; }
+
+/* Focused remaining numbers view */
+.remaining {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.remaining.show { display: flex; }
+.remaining .big-number {
+  flex: 1 1 auto;
+  background: #0b0f14;
+  border: 1px solid #333;
+  border-radius: 12px;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: clamp(24px, 8vw, 56px);
+}
+.ticket.compact .grid { display: none; }
+.ticket.compact .remaining { display: flex; }
+
+.status {
+  margin-top: 16px;
+  background: var(--panel);
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 12px;
+}
+.status .winner { color: var(--success); font-weight: 700; }
+.status .note { color: var(--muted); }
+
+/* Responsive tweaks */
+@media (max-width: 900px) {
+  .board { grid-template-columns: 1fr; }
+}
+
+/* Modal Prize UI */
+.modal { display: none; }
+.modal.show { display: block; }
+.modal .modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+}
+.modal .modal-content {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(640px, 94vw);
+  background: var(--panel);
+  border: 1px solid #222;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+}
+.modal-header, .modal-footer { padding: 12px; border-bottom: 1px solid #222; }
+.modal-footer { border-bottom: none; border-top: 1px solid #222; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; }
+.modal-header .close { background: #0b0f14; color: var(--text); border: 1px solid #333; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.modal-body { padding: 12px; }
+.prize-info { color: var(--muted); margin-bottom: 12px; }
+.prize-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.prize-card { background: #0b0f14; border: 1px solid #333; border-radius: 12px; padding: 12px; }
+.prize-card h3 { margin: 0 0 8px; }
+.modal-footer button { padding: 8px 12px; border-radius: 6px; border: 1px solid #333; background: #0b0f14; color: var(--text); cursor: pointer; }
+
+@media (max-width: 560px) {
+  .prize-grid { grid-template-columns: 1fr; }
+}
