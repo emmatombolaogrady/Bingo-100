@@ -55,6 +55,29 @@ body {
 .prize-value { color: var(--text); }
 
 .app-main { padding: 16px; }
+.score-tracker {
+  margin-bottom: 12px;
+  background: var(--panel);
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.score-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: var(--text);
+}
+.score-display {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.score-label { color: var(--muted); }
+.score-value {
+  font-weight: 800;
+  color: var(--success);
+}
+.score-ticket { color: var(--muted); }
 .board {
   display: grid;
   grid-template-columns: 280px 1fr;

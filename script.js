@@ -30,9 +30,10 @@
   const resetBtn = document.getElementById('resetBtn');
   const ticketCountInput = document.getElementById('ticketCount');
    const cpuCountInput = document.getElementById('cpuCount');
+  const voiceToggle = document.getElementById('voiceToggle');
   const ticketsEl = document.getElementById('tickets');
   const calledListEl = document.getElementById('calledList');
-  const lastCallEl = document.getElementById('lastCall');
+  const callCountEl = document.getElementById('callCount');
   const statusEl = document.getElementById('status');
   const prizeModal = document.getElementById('prizeModal');
   const fullHouseWinnerEl = document.getElementById('fullHouseWinner');
@@ -42,9 +43,13 @@
   const rptAmountsEl = document.getElementById('rptAmounts');
   const fullHouseAmountEl = document.getElementById('fullHouseAmount');
   const totalScoreAmountEl = document.getElementById('totalScoreAmount');
+  const closestScoreEl = document.getElementById('closestScore');
+  const closestTicketEl = document.getElementById('closestTicket');
 
   let state = initialState();
   let autoTimer = null; // interval id for auto calling
+  let voices = [];
+  let selectedVoice = null;
 
   function initialState() {
     return {
@@ -63,12 +68,18 @@
     state = initialState();
     ticketsEl.innerHTML = '';
     calledListEl.innerHTML = '';
-    lastCallEl.textContent = '—';
+  if (callCountEl) callCountEl.textContent = `0 of ${MAX_NUMBER}`;
     statusEl.innerHTML = '';
+  if (closestScoreEl) closestScoreEl.textContent = '—';
+  if (closestTicketEl) closestTicketEl.textContent = 'Ticket —';
     callBtn.disabled = true;
     autoBtn.disabled = true;
     stopAuto();
     hidePrizeModal();
+    // Stop any ongoing speech
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
   }
 
   function startGame() {
@@ -91,7 +102,10 @@
     state.running = true;
     callBtn.disabled = false;
     autoBtn.disabled = false;
-    statusEl.innerHTML = `<div class="note">Game started. Click "Call Next Number" to play.</div>`;
+  statusEl.innerHTML = `<div class="note">Game started. Click "Call Next Number" to play.</div>`;
+  if (callCountEl) callCountEl.textContent = `0 of ${MAX_NUMBER}`;
+    // Initialize closest score view
+    updateClosestPlayerScore();
   }
 
   function computeRTP() {
@@ -112,7 +126,13 @@
    function addPlayerTickets(label, playerId, count) {
      const sectionHeader = document.createElement('div');
      sectionHeader.className = 'player-section';
-     sectionHeader.innerHTML = `<div class="player-header">${label} — ${count} ticket(s)</div>`;
+    // Keep a section anchor but hide text for human player (playerId 0)
+    sectionHeader.dataset.playerId = String(playerId);
+    if (playerId === 0) {
+      sectionHeader.innerHTML = `<div class="player-header" style="display:none"></div>`;
+    } else {
+      sectionHeader.innerHTML = `<div class="player-header">${label} — ${count} ticket(s)</div>`;
+    }
      ticketsEl.appendChild(sectionHeader);
      for (let i = 0; i < count; i++) {
        const ticket = generateTicket(`${playerId}-${i + 1}`);
@@ -212,7 +232,15 @@
 
     const header = document.createElement('div');
     header.className = 'ticket-header';
-    header.innerHTML = `<span>Ticket #${ticket.id}</span><span>Marked: <strong class="marked-count">0</strong> / ${NUMBERS_PER_TICKET}</span>`;
+    // Human player (playerId 0) ticket label: "Ticket X" instead of "Ticket #0-X"
+    let ticketLabel;
+    if (ticket.playerId === 0 && /^0-/.test(ticket.id)) {
+      const seq = ticket.id.split('-')[1];
+      ticketLabel = `Ticket ${seq}`;
+    } else {
+      ticketLabel = `Ticket #${ticket.id}`;
+    }
+    header.innerHTML = `<span>${ticketLabel}</span><span>Marked: <strong class="marked-count">0</strong> / ${NUMBERS_PER_TICKET}</span>`;
 
     const progress = document.createElement('div');
     progress.className = 'progress';
@@ -254,9 +282,13 @@
     state.called.push(n);
 
     addCalledBall(n);
-    lastCallEl.textContent = String(n);
+  if (callCountEl) callCountEl.textContent = `${state.called.length} of ${MAX_NUMBER}`;
+    // Speak the called number (female voice) if enabled
+    speakCalledNumber(n);
 
     // Mark tickets and update scores
+    // Update closest score for player's tickets after each call
+    updateClosestPlayerScore();
     for (const ticket of state.tickets) {
       if (ticket.numbers.has(n)) {
         ticket.marks.add(n);
@@ -378,6 +410,38 @@
     showPrizeModal();
   }
 
+  // Compute and render the player's (playerId 0) ticket score closest to 100
+  function updateClosestPlayerScore() {
+    if (!closestScoreEl || !closestTicketEl) return;
+    const playerTickets = state.tickets.filter(t => t.playerId === 0);
+    if (playerTickets.length === 0) {
+      closestScoreEl.textContent = '—';
+      closestTicketEl.textContent = 'Ticket —';
+      return;
+    }
+    // Prefer exact 100; otherwise closest by difference (min (100 - score)) i.e. max score
+    let best = null;
+    for (const t of playerTickets) {
+      if (!best) { best = t; continue; }
+      const tIsExact = t.score === 100;
+      const bIsExact = best.score === 100;
+      if (tIsExact && !bIsExact) { best = t; continue; }
+      if (!tIsExact && !bIsExact && t.score > best.score) { best = t; }
+    }
+    const scoreText = best ? String(best.score) : '—';
+    let ticketText = 'Ticket —';
+    if (best) {
+      // For human player tickets (id pattern 0-X) show simplified label without '#0-'
+      if (best.playerId === 0 && /^0-/.test(String(best.id))) {
+        ticketText = `Ticket ${String(best.id).split('-')[1]}`;
+      } else {
+        ticketText = `Ticket #${best.id}`;
+      }
+    }
+    closestScoreEl.textContent = scoreText;
+    closestTicketEl.textContent = ticketText;
+  }
+
   function addCalledBall(n) {
     const ball = document.createElement('div');
     ball.className = 'ball';
@@ -460,9 +524,9 @@
 
   // Reorder only player's tickets (playerId 0) into groups: 1 left, 2 left, 3 left, others (4+)
   function reorderPlayerTickets() {
-    // Find the player's section header ('You — ... ticket(s)')
+    // Find the human player's section by data attribute
     const playerSection = Array.from(ticketsEl.querySelectorAll('.player-section'))
-      .find(sec => sec.querySelector('.player-header')?.textContent?.startsWith('You —'));
+      .find(sec => sec.dataset.playerId === '0');
     if (!playerSection) return;
 
     // Collect ticket nodes belonging to playerId 0
@@ -552,6 +616,53 @@
   });
   closePrizeBtn.addEventListener('click', hidePrizeModal);
   resetFromPrizeBtn.addEventListener('click', () => { hidePrizeModal(); resetGame(); });
+  if (voiceToggle) {
+    voiceToggle.addEventListener('change', () => {
+      // Cancel any ongoing speech when toggling off
+      if (!voiceToggle.checked && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    });
+  }
+
+  // Voice setup
+  if (window.speechSynthesis) {
+    const loadVoices = () => {
+      voices = window.speechSynthesis.getVoices();
+      // Try to select a female voice heuristically; fallback to default
+      selectedVoice = selectFemaleVoice(voices);
+    };
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+  }
+
+  function selectFemaleVoice(list) {
+    if (!list || list.length === 0) return null;
+    // Prefer voices that mention female/girl/woman or common female names
+    const nameHints = /(female|woman|girl|samantha|victoria|karen|susan|zoe|emma|ava|allison|amy|anna|katie|jessica)/i;
+    const langHints = /(en-GB|en-US|en-AU|en)/i;
+    let candidates = list.filter(v => nameHints.test(v.name) || nameHints.test(String(v.voiceURI)));
+    if (candidates.length === 0) {
+      candidates = list.filter(v => langHints.test(v.lang));
+    }
+    // Prefer non-localService voices for consistency; then pick first
+    const nonLocal = candidates.filter(v => !v.localService);
+    return (nonLocal[0] || candidates[0] || list[0]) || null;
+  }
+
+  function speakCalledNumber(n) {
+    if (!voiceToggle || !voiceToggle.checked) return;
+    if (!window.speechSynthesis) return;
+  // Speak only the number itself; adjust to a friendlier but less raised pitch.
+  const utter = new SpeechSynthesisUtterance(String(n));
+  if (selectedVoice) utter.voice = selectedVoice;
+  // Keep mild energy but lower pitch significantly (near natural female range).
+  utter.rate = 1.12; // slightly above normal for snappiness
+  utter.pitch = 1.05 + Math.random() * 0.05; // subtle variance 1.05–1.10
+  utter.volume = 1.0;
+    window.speechSynthesis.cancel(); // prevent overlap stacking
+    window.speechSynthesis.speak(utter);
+  }
 
   // Modal helpers
   function showPrizeModal() {

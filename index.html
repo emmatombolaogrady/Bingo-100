@@ -18,23 +18,34 @@
         CPU Players:
         <input type="number" id="cpuCount" min="1" max="100" value="1" />
       </label>
+      <label>
+        Voice:
+        <input type="checkbox" id="voiceToggle" checked />
+      </label>
       <button id="startBtn">Start Game</button>
       <button id="callBtn" disabled>Call Next Number</button>
   <button id="autoBtn" disabled>Auto Call (3s)</button>
       <button id="resetBtn">Reset</button>
     </div>
-    <div class="rpt-info">
-  RTP: 85% total — Full House: 30% RTP, Total Score: 55% RTP
-  <span id="rptAmounts" class="rpt-amounts"></span>
-    </div>
+    <!-- RTP info removed by request -->
   </header>
 
   <main class="app-main">
+    <section class="score-tracker" aria-live="polite">
+      <div class="score-wrap">
+  <h2 class="score-title">Closest to 100</h2>
+        <div class="score-display">
+          <span class="score-label">Total score:</span>
+          <span id="closestScore" class="score-value">—</span>
+          <span id="closestTicket" class="score-ticket">Ticket —</span>
+        </div>
+      </div>
+    </section>
     <section class="board">
       <div class="calls">
         <h2>Called Numbers</h2>
         <div id="calledList" class="called-list"></div>
-        <div class="last-call">Last call: <span id="lastCall">—</span></div>
+        <div class="last-call"><span id="callCount">0 of 100</span></div>
       </div>
 
   <div class="tickets" id="tickets"></div>
