@@ -45,11 +45,13 @@
   const totalScoreAmountEl = document.getElementById('totalScoreAmount');
   const closestScoreEl = document.getElementById('closestScore');
   const closestTicketEl = document.getElementById('closestTicket');
+  // Heartbeat feature removed per request
 
   let state = initialState();
   let autoTimer = null; // interval id for auto calling
   let voices = [];
   let selectedVoice = null;
+  // Heartbeat manager removed
 
   function initialState() {
     return {
@@ -80,6 +82,8 @@
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
+    // Stop heartbeat if running
+    // (heartbeat removed)
   }
 
   function startGame() {
@@ -106,6 +110,8 @@
   if (callCountEl) callCountEl.textContent = `0 of ${MAX_NUMBER}`;
     // Initialize closest score view
     updateClosestPlayerScore();
+    // Start heartbeat
+    // (heartbeat removed)
   }
 
   function computeRTP() {
@@ -252,10 +258,11 @@
     for (let r = 0; r < TICKET_ROWS; r++) {
       for (let c = 0; c < TICKET_COLS; c++) {
         const n = ticket.grid[r][c];
-        const cell = document.createElement('div');
-        cell.className = 'cell' + (n ? '' : ' empty');
-        cell.textContent = n ?? '';
-        cell.dataset.number = n ?? '';
+  const cell = document.createElement('div');
+  cell.className = 'cell' + (n ? '' : ' empty');
+  cell.textContent = n ?? '';
+  // Store numbers as strings for reliable DOM query matching
+  cell.dataset.number = n != null ? String(n) : '';
         gridEl.appendChild(cell);
       }
     }
@@ -286,42 +293,45 @@
     // Speak the called number (female voice) if enabled
     speakCalledNumber(n);
 
-    // Mark tickets and update scores
-    // Update closest score for player's tickets after each call
-    updateClosestPlayerScore();
-    for (const ticket of state.tickets) {
-      if (ticket.numbers.has(n)) {
-        ticket.marks.add(n);
-        updateTicketCell(ticket.id, n);
-        updateMarkedCount(ticket.id, ticket.marks.size);
-        const prev = ticket.score;
-        const sum = prev + n;
-        if (sum > 100) {
-          // Animate to 100 slowly and pulse, then reset to 0
-          animateOverflowToReset(ticket.id, prev);
-          ticket.score = 0;
-        } else {
-          ticket.score = sum;
-          updateProgress(ticket.id, ticket.score);
-        }
+    // Defer marking and scoring by 1 second to add a brief suspense before updates
+    setTimeout(() => {
+      // Mark tickets and update scores after delay
+      for (const ticket of state.tickets) {
+        if (ticket.numbers.has(n)) {
+          ticket.marks.add(n);
+          updateTicketCell(ticket.id, n);
+          updateMarkedCount(ticket.id, ticket.marks.size);
+          const prev = ticket.score;
+          const sum = prev + n;
+          if (sum > 100) {
+            // Animate to 100 slowly and pulse, then reset to 0
+            animateOverflowToReset(ticket.id, prev);
+            ticket.score = 0;
+          } else {
+            ticket.score = sum;
+            updateProgress(ticket.id, ticket.score);
+          }
 
-        // Check full house
-        if (!state.fullHouseWinner && ticket.marks.size >= NUMBERS_PER_TICKET) {
-          state.fullHouseWinner = ticket.id;
-          statusEl.innerHTML = `<div class="winner">Full House! Ticket #${ticket.id} wins the Full House prize (30% RTP).</div>`;
-          // Stop further calls and evaluate total score prize
-          callBtn.disabled = true;
-          autoBtn.disabled = true;
-          state.running = false;
-          stopAuto();
-          evaluateTotalScorePrize();
-          return; // stop processing further tickets after win
+          // Check full house
+          if (!state.fullHouseWinner && ticket.marks.size >= NUMBERS_PER_TICKET) {
+            state.fullHouseWinner = ticket.id;
+            statusEl.innerHTML = `<div class=\"winner\">Full House! Ticket #${ticket.id} wins the Full House prize (30% RTP).</div>`;
+            // Stop further calls and evaluate total score prize
+            callBtn.disabled = true;
+            autoBtn.disabled = true;
+            state.running = false;
+            stopAuto();
+            evaluateTotalScorePrize();
+            return; // stop processing further tickets after win
+          }
         }
       }
-    }
 
-    // Reorder only the player's tickets (playerId 0) by proximity to full house
-    reorderPlayerTickets();
+      // Update closest score for player's tickets after delayed marking
+      updateClosestPlayerScore();
+      // Reorder only the player's tickets (playerId 0) by proximity to full house
+      reorderPlayerTickets();
+    }, 1000);
 
     // (auto-reorder removed by request)
   }
@@ -394,14 +404,15 @@
     state.totalScoreWinner = winnerId;
     const totalWinner = state.tickets.find(t => String(t.id) === String(winnerId));
     const totalScoreVal = totalWinner ? totalWinner.score : 0;
-    statusEl.innerHTML += `<div class=\"winner\">Total Score Prize! Ticket #${winnerId} wins (55% RTP) — Score: ${totalScoreVal}.` +
+    const totalWinnerLabel = totalWinner ? formatTicketLabel(totalWinner) : `Ticket #${winnerId}`;
+    statusEl.innerHTML += `<div class=\"winner\">Total Score Prize! ${totalWinnerLabel} wins (55% RTP).` +
       `</div><div class=\"note\">Game over. Reset to play again.</div>`;
 
     // Show Prize UI
-    const fhTicket = state.tickets.find(t => String(t.id) === String(state.fullHouseWinner));
-    const fhScoreVal = fhTicket ? fhTicket.score : 0;
-    const fhText = state.fullHouseWinner ? `Ticket #${state.fullHouseWinner} (Score: ${fhScoreVal})` : '—';
-    const tsText = state.totalScoreWinner ? `Ticket #${state.totalScoreWinner} (Score: ${totalScoreVal})` : '—';
+  const fhTicket = state.tickets.find(t => String(t.id) === String(state.fullHouseWinner));
+  const fhText = fhTicket ? formatTicketLabel(fhTicket) : '—';
+  const tsTicket = totalWinner;
+  const tsText = tsTicket ? formatTicketLabel(tsTicket) : '—';
     fullHouseWinnerEl.textContent = fhText;
     totalScoreWinnerEl.textContent = tsText;
     // Fill prize amounts
@@ -442,6 +453,15 @@
     closestTicketEl.textContent = ticketText;
   }
 
+  // Format a ticket label for display: for human player show 'Ticket N', for others 'Ticket #id'
+  function formatTicketLabel(ticket) {
+    const idStr = String(ticket.id);
+    if (ticket.playerId === 0 && /^0-/.test(idStr)) {
+      return `Ticket ${idStr.split('-')[1]}`;
+    }
+    return `Ticket #${idStr}`;
+  }
+
   function addCalledBall(n) {
     const ball = document.createElement('div');
     ball.className = 'ball';
@@ -465,8 +485,13 @@
   function updateTicketCell(ticketId, n) {
     const ticketEl = ticketsEl.querySelector(`.ticket[data-id="${ticketId}"]`);
     if (!ticketEl) return;
-    const cell = ticketEl.querySelector(`.cell[data-number="${n}"]`);
+    const key = String(n);
+    // Mark grid cell
+    const cell = ticketEl.querySelector(`.cell[data-number="${key}"]`);
     if (cell) cell.classList.add('marked');
+    // Remove from big-number remaining view if present
+    const big = ticketEl.querySelector(`.remaining .big-number[data-number="${key}"]`);
+    if (big) big.remove();
     updateRemainingView(ticketId);
   }
 
@@ -624,6 +649,9 @@
       }
     });
   }
+  if (heartbeatToggle) {
+    // (heartbeat toggle removed)
+  }
 
   // Voice setup
   if (window.speechSynthesis) {
@@ -638,21 +666,46 @@
 
   function selectFemaleVoice(list) {
     if (!list || list.length === 0) return null;
-    // Prefer voices that mention female/girl/woman or common female names
-    const nameHints = /(female|woman|girl|samantha|victoria|karen|susan|zoe|emma|ava|allison|amy|anna|katie|jessica)/i;
+    // Strongly prefer known female voices on macOS/iOS and common engines
+    const preferredFemales = [
+      'Samantha','Victoria','Karen','Serena','Moira','Kate','Tessa','Zoe','Natasha','Susan','Ava','Allison','Amy','Anna','Kathy','Jessica','Nora','Fiona'
+    ];
+    const maleHints = /(male|man|boy|daniel|alex|fred|arthur|james|tom|george|liam|ryan)/i;
+    const femaleHints = /(female|woman|girl)/i;
     const langHints = /(en-GB|en-US|en-AU|en)/i;
-    let candidates = list.filter(v => nameHints.test(v.name) || nameHints.test(String(v.voiceURI)));
-    if (candidates.length === 0) {
-      candidates = list.filter(v => langHints.test(v.lang));
-    }
-    // Prefer non-localService voices for consistency; then pick first
-    const nonLocal = candidates.filter(v => !v.localService);
-    return (nonLocal[0] || candidates[0] || list[0]) || null;
+    // Rank voices by: preferredFemales > femaleHints > English language > others
+    const scored = list.map(v => {
+      const name = v.name || '';
+      const uri = String(v.voiceURI || '');
+      let score = 0;
+      if (preferredFemales.some(n => name.toLowerCase().includes(n.toLowerCase()))) score += 100;
+      if (femaleHints.test(name) || femaleHints.test(uri)) score += 20;
+      if (langHints.test(v.lang)) score += 10;
+      if (maleHints.test(name) || maleHints.test(uri)) score -= 50;
+      if (!v.localService) score += 5; // prefer non-local for consistency
+      return { v, score };
+    });
+    scored.sort((a,b)=>b.score-a.score);
+    const best = scored[0]?.v || null;
+    return best;
   }
 
   function speakCalledNumber(n) {
     if (!voiceToggle || !voiceToggle.checked) return;
     if (!window.speechSynthesis) return;
+    // If current voice appears male, try re-selecting a female voice
+    if (selectedVoice) {
+      const malePattern = /(male|man|boy|daniel|alex|fred|arthur|james|tom|george|liam|ryan)/i;
+      if (malePattern.test(String(selectedVoice.name)) || malePattern.test(String(selectedVoice.voiceURI))) {
+        const voicesList = window.speechSynthesis.getVoices();
+        const newSel = selectFemaleVoice(voicesList);
+        if (newSel) selectedVoice = newSel;
+      }
+    } else {
+      const voicesList = window.speechSynthesis.getVoices();
+      const newSel = selectFemaleVoice(voicesList);
+      if (newSel) selectedVoice = newSel;
+    }
   // Speak only the number itself; adjust to a friendlier but less raised pitch.
   const utter = new SpeechSynthesisUtterance(String(n));
   if (selectedVoice) utter.voice = selectedVoice;
