@@ -11,18 +11,6 @@
   const NUMBERS_PER_TICKET = 10;
   const TICKET_ROWS = 2;
   const TICKET_COLS = 9;
-  // Column ranges mapping (index 0..8)
-  const COLUMN_RANGES = [
-    [1, 11],   // col 0: 1-11
-    [12, 22],  // col 1: 12-22
-    [23, 33],  // col 2: 23-33
-    [34, 44],  // col 3: 34-44
-    [45, 55],  // col 4: 45-55
-    [56, 66],  // col 5: 56-66
-    [67, 77],  // col 6: 67-77
-    [78, 88],  // col 7: 78-88
-    [89, 100], // col 8: 89-100
-  ];
 
   const startBtn = document.getElementById('startBtn');
   const callBtn = document.getElementById('callBtn');
@@ -124,76 +112,26 @@
    }
 
   function generateTicket(id) {
-    // Build per-column pools according to COLUMN_RANGES
-    const columnPools = COLUMN_RANGES.map(([min, max]) => range(min, max + 1));
-    const columnCounts = Array(TICKET_COLS).fill(0); // max 2 per column
-    const byColumn = Array.from({ length: TICKET_COLS }, () => []);
-
+    // Pick 10 unique numbers from 1..100
+    const pool = range(1, MAX_NUMBER + 1);
     const picked = new Set();
-    // Pick 10 numbers respecting column ranges and capacity (<=2 per column)
     while (picked.size < NUMBERS_PER_TICKET) {
-      // choose a column that still has capacity
-      const availableCols = columnCounts
-        .map((cnt, idx) => ({ cnt, idx }))
-        .filter(c => c.cnt < 2 && columnPools[c.idx].length > 0);
-      if (availableCols.length === 0) break; // safety
-      const chosen = availableCols[Math.floor(Math.random() * availableCols.length)].idx;
-
-      // pick a number from the chosen column not already picked
-      const pool = columnPools[chosen];
-      const candidate = pool[Math.floor(Math.random() * pool.length)];
-      if (picked.has(candidate)) continue; // re-pick if duplicate
-      picked.add(candidate);
-      byColumn[chosen].push(candidate);
-      columnCounts[chosen]++;
+      picked.add(pool[Math.floor(Math.random() * pool.length)]);
     }
-
-    // If for any reason we didn't reach 10 (e.g., duplicates), fill deterministically
-    for (let col = 0; picked.size < NUMBERS_PER_TICKET && col < TICKET_COLS; col++) {
-      const pool = columnPools[col];
-      for (const n of pool) {
-        if (picked.size >= NUMBERS_PER_TICKET) break;
-        if (columnCounts[col] >= 2) break;
-        if (!picked.has(n)) {
-          picked.add(n);
-          byColumn[col].push(n);
-          columnCounts[col]++;
-        }
-      }
-    }
-
-    // Sort numbers within each column for consistent display
-    byColumn.forEach(arr => arr.sort((a, b) => a - b));
-
-    // Build a 2x9 grid; assign numbers to rows keeping row counts balanced (5 each)
+    const numbers = Array.from(picked).sort((a, b) => a - b);
+    // Build a 2x9 grid ensuring exactly 5 numbers per row (total 10).
+    // To keep a pleasant spread, pick 5 distinct columns for row 0 and 5 distinct columns for row 1.
     const grid = Array.from({ length: TICKET_ROWS }, () => Array(TICKET_COLS).fill(null));
-    let rowCounts = [0, 0];
-    for (let col = 0; col < TICKET_COLS; col++) {
-      const nums = byColumn[col];
-      for (let i = 0; i < nums.length; i++) {
-        // Place in the row that currently has fewer items; second goes to the other row
-        let row;
-        if (i === 0) {
-          row = rowCounts[0] <= rowCounts[1] ? 0 : 1;
-        } else {
-          row = rowCounts[0] > rowCounts[1] ? 1 : 0;
-        }
-        // Ensure we don't exceed 5 per row; if exceeded, use the other row
-        if (rowCounts[row] >= 5) row = 1 - row;
-        if (rowCounts[row] < 5) {
-          grid[row][col] = nums[i];
-          rowCounts[row]++;
-        }
-      }
-    }
+    const cols = shuffle(range(0, TICKET_COLS)); // 0..8 shuffled
+    const row0Cols = cols.slice(0, 5).sort((a, b) => a - b);
+    const row1Cols = cols.slice(5, 10).sort((a, b) => a - b);
 
-    // Collect the numbers set from grid
-    const numbers = [];
-    for (let r = 0; r < TICKET_ROWS; r++) {
-      for (let c = 0; c < TICKET_COLS; c++) {
-        const v = grid[r][c];
-        if (v != null) numbers.push(v);
-      }
+    // Place first 5 numbers on row 0, next 5 on row 1.
+    for (let i = 0; i < 5; i++) {
+      grid[0][row0Cols[i]] = numbers[i];
+    }
+    for (let i = 0; i < 5; i++) {
+      grid[1][row1Cols[i]] = numbers[i + 5];
     }
 
     return {
@@ -201,7 +139,7 @@
       numbers: new Set(numbers),
       marks: new Set(),
       grid,
-      score: 0,
+      score: 0, // total score progress (0..100 with wrap)
     };
   }
 
@@ -287,11 +225,6 @@
         }
       }
     }
-
-    // Reorder only the player's tickets (playerId 0) by proximity to full house
-    reorderPlayerTickets();
-
-    // (auto-reorder removed by request)
   }
 
   function startAuto() {
@@ -450,55 +383,6 @@
           el.remove();
         }
       });
-    }
-  }
-
-  // Compute remaining numbers for a ticket
-  function remainingCount(ticket) {
-    return NUMBERS_PER_TICKET - ticket.marks.size;
-  }
-
-  // Reorder only player's tickets (playerId 0) into groups: 1 left, 2 left, 3 left, others (4+)
-  function reorderPlayerTickets() {
-    // Find the player's section header ('You — ... ticket(s)')
-    const playerSection = Array.from(ticketsEl.querySelectorAll('.player-section'))
-      .find(sec => sec.querySelector('.player-header')?.textContent?.startsWith('You —'));
-    if (!playerSection) return;
-
-    // Collect ticket nodes belonging to playerId 0
-    const playerTicketNodes = Array.from(ticketsEl.querySelectorAll('.ticket')).filter(node => {
-      const id = node.dataset.id;
-      const t = state.tickets.find(tt => String(tt.id) === String(id));
-      return t && t.playerId === 0;
-    });
-    if (playerTicketNodes.length === 0) return;
-
-    // Group by remaining count
-    const groups = { one: [], two: [], three: [], other: [] };
-    for (const node of playerTicketNodes) {
-      const id = node.dataset.id;
-      const t = state.tickets.find(tt => String(tt.id) === String(id));
-      if (!t) continue;
-      const rem = remainingCount(t);
-      if (rem === 1) groups.one.push(node);
-      else if (rem === 2) groups.two.push(node);
-      else if (rem === 3) groups.three.push(node);
-      else groups.other.push(node);
-    }
-
-    const appendOrder = [...groups.one, ...groups.two, ...groups.three, ...groups.other];
-
-    // Insert reordered player tickets immediately after their section header
-    let anchor = playerSection.nextSibling;
-    // Remove existing player tickets from DOM (to avoid duplicates)
-    for (const node of playerTicketNodes) {
-      ticketsEl.removeChild(node);
-    }
-    // Re-insert in desired order after the player section, before any other elements
-    let insertAfter = playerSection;
-    for (const node of appendOrder) {
-      ticketsEl.insertBefore(node, insertAfter.nextSibling);
-      insertAfter = node;
     }
   }
 
